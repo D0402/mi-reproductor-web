@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Reproductor de Música</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #0f0f12;
+            color: #f0f0f0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        header {
+            background: #18181c;
+            padding: 15px 30px;
+            border-bottom: 1px solid #2a2a32;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        header h1 {
+            font-size: 1.4rem;
+            color: #ff3e3e;
+        }
+
+        .layout {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .player-section {
+            flex: 1;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: #131317;
+            border-right: 1px solid #2a2a32;
+        }
+
+        .iframe-container {
+            width: 100%;
+            max-width: 640px;
+            aspect-ratio: 16/9;
+            background: #000;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+        }
+
+        .dashboard-section {
+            flex: 1.2;
+            padding: 25px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .add-box {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            background: #18181c;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #2a2a32;
+        }
+
+        .search-row {
+            display: flex;
+            gap: 10px;
+            width: 100%;
+        }
+
+        .search-row input {
+            flex: 1;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #3a3a45;
+            background: #0f0f12;
+            color: #fff;
+        }
+
+        .search-row button {
+            background: #ff3e3e;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .search-row button:hover {
+            background: #e03232;
+        }
+
+        .playlist-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .song-card {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            background: #18181c;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #2a2a32;
+            transition: 0.2s;
+        }
+
+        .song-card:hover {
+            border-color: #4a4a5a;
+        }
+
+        .song-card.active {
+            border-color: #ff3e3e;
+            background: #22181c;
+        }
+
+        .song-card img {
+            width: 90px;
+            height: 50px;
+            object-fit: cover;
+            border-radius: 4px;
+        }
+
+        .song-info {
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .song-title {
+            font-weight: 600;
+            font-size: 0.95rem;
+            margin-bottom: 4px;
+            color: #fff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .song-id {
+            font-size: 0.75rem;
+            color: #888;
+        }
+
+        .actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-play {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .btn-delete {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <h1>Music Dashboard</h1>
+        <span id="counter">Canciones: 0</span>
+    </header>
+
+    <div class="layout">
+        <div class="player-section">
+            <div class="iframe-container" id="playerContainer">
+
+                <div style="display:flex; justify-content:center; align-items:center; height:100%; color:#666;">
+                    Selecciona una canción para reproducir</div>
+                <div id="player"></div>
+            </div>
+        </div>
+
+        <div class="dashboard-section">
+            <div class="add-box">
+                <div class="search-row">
+                    <input type="text" id="searchInput"
+                        placeholder="Escribe un nombre (ej. Bad Bunny) o pega un link...">
+                    <button onclick="procesarEntrada()">🔍 Buscar / + Agregar</button>
+                </div>
+                <div id="searchResults" style="display: flex; flex-direction: column; gap: 8px; width: 100%;"></div>
+            </div>
+
+            <div class="playlist-grid" id="playlistGrid"></div>
+        </div>
+    </div>
+
+    <script>
+        let playlist = [];
+        let currentIndex = 0;
+        let ultimosResultados = [];
+        let player;
+        let apiLista = false;
+
+        // 1. Cargar la API de YouTube
+        const tag = document.createElement('script');
+        tag.src = "https://www.youtube.com/iframe_api";
+        document.head.appendChild(tag);
+
+        // 2. YouTube avisa cuando la API está lista
+        function onYouTubeIframeAPIReady() {
+            apiLista = true;
+        }
+
+        async function cargarCanciones() {
+            try {
+                const res = await fetch('/api/canciones');
+                playlist = await res.json();
+                document.getElementById('counter').innerText = `Canciones: ${playlist.length}`;
+                renderDashboard();
+            } catch (e) {
+                console.error("Error al cargar:", e);
+            }
+        }
+
+        function renderDashboard() {
+            const grid = document.getElementById('playlistGrid');
+            grid.innerHTML = playlist.map((item, index) => `
+    <div class="song-card ${index === currentIndex ? 'active' : ''}">
+      <img src="https://img.youtube.com/vi/${item.video_id}/hqdefault.jpg" alt="Miniatura">
+      <div class="song-info">
+        <div class="song-title">${item.titulo}</div>
+        <div class="song-id">ID: ${item.video_id}</div>
+      </div>
+      <div class="actions">
+        <button class="btn-play" onclick="reproducirIndice(${index})">▶ Play</button>
+        <button class="btn-delete" onclick="eliminarCancion(${item.id})">🗑️</button>
+      </div>
+    </div>
+  `).join('');
+        }
+
+        function reproducirIndice(index) {
+            if (!playlist[index] || !apiLista) return;
+            currentIndex = index;
+            const videoId = playlist[index].video_id;
+
+            if (!player) {
+                // Busca el contenedor por cualquiera de los dos nombres y limpia el texto
+                const container = document.getElementById('playerContainer') || document.getElementById('player');
+                container.innerHTML = '<div id="yt-player-div"></div>';
+
+                player = new YT.Player('yt-player-div', {
+                    height: '100%',
+                    width: '100%',
+                    videoId: videoId,
+                    playerVars: { 'autoplay': 1, 'enablejsapi': 1, 'rel': 0 },
+                    events: {
+                        'onStateChange': (event) => {
+                            if (event.data === YT.PlayerState.ENDED) reproducirSiguiente();
+                        }
+                    }
+                });
+            } else {
+                // Si ya existe el reproductor, solo cambiamos de video
+                player.loadVideoById(videoId);
+            }
+            renderDashboard();
+        }
+
+        function reproducirSiguiente() {
+            if (playlist.length === 0) return;
+            currentIndex++;
+            if (currentIndex >= playlist.length) {
+                currentIndex = 0;
+            }
+            reproducirIndice(currentIndex);
+        }
+
+        async function procesarEntrada() {
+            const input = document.getElementById('searchInput').value.trim();
+            if (!input) return;
+            if (input.includes('youtube.com') || input.includes('youtu.be')) {
+                await fetch('/api/canciones', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: input })
+                });
+                document.getElementById('searchInput').value = '';
+                cargarCanciones();
+            } else {
+                await ejecutarBusqueda(input);
+            }
+        }
+
+        async function ejecutarBusqueda(query) {
+            const container = document.getElementById('searchResults');
+            container.innerHTML = '<p style="color:#aaa;">Buscando...</p>';
+            try {
+                const res = await fetch(`/api/buscar?q=${encodeURIComponent(query)}`);
+                ultimosResultados = await res.json();
+                if (ultimosResultados.length === 0) {
+                    container.innerHTML = '<p>No se encontraron canciones.</p>'; return;
+                }
+                container.innerHTML = ultimosResultados.map((item, index) => `
+      <div style="display:flex; gap:10px; background:#22222a; padding:8px; border-radius:6px; margin-top:5px;">
+        <img src="${item.miniatura}" style="width:60px; height:40px;">
+        <div style="flex:1; overflow:hidden;">
+          <div style="font-weight:bold; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${item.titulo}</div>
+          <div style="font-size:0.75rem; color:#888;">${item.canal}</div>
+        </div>
+        <button onclick="agregarDesdeBusqueda(${index})" style="background:#28a745; color:white; border:none; padding:6px; cursor:pointer;">+ Añadir</button>
+      </div>
+    `).join('');
+            } catch (err) {
+                container.innerHTML = '<p style="color:#ff5555;">Error al buscar.</p>';
+            }
+        }
+
+        async function agregarDesdeBusqueda(index) {
+            const item = ultimosResultados[index];
+            if (!item) return;
+            await fetch('/api/canciones', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ video_id: item.video_id, titulo: item.titulo })
+            });
+            document.getElementById('searchResults').innerHTML = '';
+            document.getElementById('searchInput').value = '';
+            cargarCanciones();
+        }
+
+        async function eliminarCancion(id) {
+            if (confirm("¿Eliminar canción?")) {
+                await fetch(`/api/canciones/${id}`, { method: 'DELETE' });
+                cargarCanciones();
+            }
+        }
+
+        window.onload = cargarCanciones;
+    </script>
+</body>
+
+</html>
