@@ -3,7 +3,6 @@ import re
 import json
 import urllib.request
 import urllib.parse
-from pathlib import Path
 from typing import Optional
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
@@ -13,13 +12,13 @@ from pydantic import BaseModel
 from mangum import Mangum
 import psycopg2
 
-# Cargar el archivo .env
-env_path = Path(__file__).resolve().parent.parent / '.env'
-load_dotenv(dotenv_path=env_path)
+# Carga las variables locales si existe el archivo, sino las toma de Vercel
+load_dotenv()
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 YOUTUBE_API_KEY = os.environ.get("YOUTUBE_API_KEY")
 
+# Asegúrate de que tu aplicación se llame 'app' (Vercel busca esta variable)
 app = FastAPI()
 
 def get_db_connection():
@@ -147,7 +146,7 @@ def agregar_cancion(req: CancionRequest):
     except Exception as e:
         print("Error en POST /canciones:", str(e))
         raise HTTPException(status_code=400, detail=str(e))
-        
+
 @app.delete("/api/canciones/{cancion_id}")
 def eliminar_cancion(cancion_id: int):
     try:
