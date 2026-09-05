@@ -1,17 +1,11 @@
 import os
-import re
-import json
 import urllib.request
 import urllib.parse
+import json
 from typing import Optional
-from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from mangum import Mangum
 import psycopg2
-
 # Carga las variables locales si existe el archivo, sino las toma de Vercel
 load_dotenv()
 
@@ -160,10 +154,5 @@ def eliminar_cancion(cancion_id: int):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-app.mount("/static", StaticFiles(directory="public"), name="static")
-
-@app.get("/")
-def read_root():
-    return FileResponse("public/index.html")
 
 handler = Mangum(app)
